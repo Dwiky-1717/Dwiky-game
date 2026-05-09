@@ -1,43 +1,131 @@
 using UnityEngine;
 
-public class EnemyMove : MonoBehaviour
+public class EnemyAI : MonoBehaviour
 {
-    public float speed = 2f;
-    public Transform pointA;
-    public Transform pointB;
+    public Transform player;
 
-    private bool keKanan = true;
+    [Header("Movement")]
+    public float speed = 2f;
+
+    [Header("Detection")]
+    public float chaseRange = 5f;
+
+    [Header("Patrol")]
+    public Transform[] patrolPoints;
+
+    private int currentPoint;
+
+    [Header("Search")]
+    public float searchTime = 3f;
+
+    private float searchTimer;
+    private Vector2 lastPlayerPos;
+
+    private enum State
+    {
+        Patrol,
+        Chase,
+        Search
+    }
+
+    private State currentState;
+
+    void Start()
+    {
+        currentState = State.Patrol;
+    }
 
     void Update()
     {
-        if (pointA == null || pointB == null) return;
+        float distance = Vector2.Distance(transform.position, player.position);
 
-        if (keKanan)
+        switch (currentState)
         {
-            transform.position += Vector3.right * speed * Time.deltaTime;
+            case State.Patrol:
 
-            if (transform.position.x >= pointB.position.x)
-            {
-                keKanan = false;
-                Flip();
-            }
+                Patrol();
+
+                if (distance < chaseRange)
+                {
+                    currentState = State.Chase;
+                }
+
+                break;
+
+            case State.Chase:
+
+                Chase();
+
+                if (distance > chaseRange)
+                {
+                    lastPlayerPos = player.position;
+
+                    currentState = State.Search;
+
+                    searchTimer = searchTime;
+                }
+
+                break;
+
+            case State.Search:
+
+                Search();
+
+                if (distance < chaseRange)
+                {
+                    currentState = State.Chase;
+                }
+
+                break;
         }
-        else
-        {
-            transform.position += Vector3.left * speed * Time.deltaTime;
+    }
 
-            if (transform.position.x <= pointA.position.x)
+    void Patrol()
+    {
+        if (patrolPoints.Length == 0)
+            return;
+
+        Transform target = patrolPoints[currentPoint];
+
+        transform.position = Vector2.MoveTowards(
+            transform.position,
+            target.position,
+            speed * Time.deltaTime
+        );
+
+        if (Vector2.Distance(transform.position, target.position) < 0.2f)
+        {
+            currentPoint++;
+
+            if (currentPoint >= patrolPoints.Length)
             {
-                keKanan = true;
-                Flip();
+                currentPoint = 0;
             }
         }
     }
 
-    void Flip()
+    void Chase()
     {
-        Vector3 s = transform.localScale;
-        s.x *= -1;
-        transform.localScale = s;
+        transform.position = Vector2.MoveTowards(
+            transform.position,
+            player.position,
+            speed * Time.deltaTime
+        );
+    }
+
+    void Search()
+    {
+        transform.position = Vector2.MoveTowards(
+            transform.position,
+            lastPlayerPos,
+            speed * Time.deltaTime
+        );
+
+        searchTimer -= Time.deltaTime;
+
+        if (searchTimer <= 0)
+        {
+            currentState = State.Patrol;
+        }
     }
 }
